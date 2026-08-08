@@ -4,19 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LOOPDECK — live looper</title>
-<meta name="description" content="A free 4-track live looper in your browser. Record your mic, layer overdubs, drop in your own sounds — no install needed.">
+<meta name="description" content="A free multi-track live looper in your browser. Record your mic, layer overdubs, add reverb and EQ, drop in your own sounds — no install needed.">
 <meta name="theme-color" content="#101216">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='none' stroke='%233ddc84' stroke-width='12'/></svg>">
 <!-- Open Graph (WhatsApp, Facebook, LinkedIn, iMessage) -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="LOOPDECK">
 <meta property="og:title" content="LOOPDECK — live looper in your browser">
-<meta property="og:description" content="Tap to record, tap to loop, tap to overdub. Layer your mic and your own sounds into live loops on 4 tracks — free, no install.">
+<meta property="og:description" content="Tap to record, tap to loop, tap to overdub. Layer your mic and your own sounds into live loops with reverb, EQ and echo — free, no install.">
 <meta property="og:url" content="https://loopdeck-zeta.vercel.app">
 <!-- Twitter / X -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="LOOPDECK — live looper in your browser">
-<meta name="twitter:description" content="Tap to record, tap to loop, tap to overdub. Layer your mic and your own sounds into live loops on 4 tracks — free, no install.">
+<meta name="twitter:description" content="Tap to record, tap to loop, tap to overdub. Layer your mic and your own sounds into live loops with reverb, EQ and echo — free, no install.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -29,6 +29,7 @@
     --dim:#7d828c;
     --rec:#ff4438;
     --t1:#ff5d4d; --t2:#ffb02e; --t3:#3ddc84; --t4:#4dc3ff;
+    --hubw:300px;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
@@ -60,22 +61,23 @@
   }
   .mbtn:hover{background:#2a2f39;}
   .mbtn:active{transform:translateY(1px);}
-  #songBtn.rec{
-    background:#4a1512; border-color:var(--rec); color:#ffd9d6;
-    animation:blink 1.2s steps(2) infinite;
-  }
-  #songBtn.rec:hover{background:#5a1d18;}
   .mbtn:focus-visible, button:focus-visible, input:focus-visible{outline:2px solid var(--t4); outline-offset:2px;}
-  .mvol{display:flex; align-items:center; gap:8px; color:var(--dim); font-size:11px; letter-spacing:.08em;}
 
   /* ---------- deck ---------- */
   main{
-    flex:1; display:grid; gap:18px; padding:10px 22px 22px;
-    grid-template-columns:repeat(4, minmax(0,1fr));
-    max-width:1180px; width:100%; margin:0 auto;
+    flex:1; display:grid; gap:16px; padding:10px 22px 22px;
+    grid-template-columns:repeat(2, minmax(0,1fr)) var(--hubw) repeat(2, minmax(0,1fr));
+    align-items:start;
+    max-width:1500px; width:100%; margin:0 auto;
   }
-  @media (max-width:920px){ main{grid-template-columns:repeat(2, minmax(0,1fr));} }
-  @media (max-width:400px){ main{grid-template-columns:1fr;} }
+  .hub{grid-column:3; order:2;}
+  @media (max-width:1140px){
+    main{grid-template-columns:repeat(2, minmax(0,1fr));}
+    .hub{grid-column:1 / -1; grid-row:auto !important;}
+  }
+  @media (max-width:460px){
+    main{grid-template-columns:1fr;}
+  }
 
   .track{
     background:linear-gradient(180deg, var(--panel-2), var(--panel));
@@ -84,14 +86,20 @@
     position:relative;
   }
   .track.dragover{border-color:var(--tc); box-shadow:0 0 0 2px var(--tc) inset;}
-  .thead{display:flex; align-items:center; justify-content:space-between;}
+  .thead{display:flex; align-items:center; justify-content:space-between; gap:8px;}
   .tname{font-size:12px; font-weight:700; letter-spacing:.16em; color:var(--tc);}
+  .theadr{display:flex; align-items:center; gap:8px;}
   .tstate{
     font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:.1em;
     color:var(--dim); text-transform:uppercase;
   }
   .tstate.rec{color:var(--rec); animation:blink 1s steps(2) infinite;}
   .tstate.dub{color:var(--tc); animation:blink 1s steps(2) infinite;}
+  .trm{
+    background:none; border:none; color:var(--dim); cursor:pointer;
+    font-size:15px; line-height:1; padding:0 2px;
+  }
+  .trm:hover{color:var(--rec);}
   @keyframes blink{50%{opacity:.25;}}
 
   .padwrap{position:relative; width:100%; aspect-ratio:1;}
@@ -133,6 +141,97 @@
   }
   .vol{display:flex; align-items:center; gap:8px;}
   .vol svg{flex:none; opacity:.5;}
+  .knob{display:flex; align-items:center; gap:8px;}
+  .knob .kl{
+    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.1em;
+    color:var(--dim); width:26px; flex:none; text-transform:uppercase;
+  }
+  .knob .kv{
+    font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--dim);
+    width:26px; flex:none; text-align:right;
+  }
+
+  /* ---------- centre hub ---------- */
+  .hub{
+    background:linear-gradient(180deg, #23272f, #171a1f);
+    border:1px solid var(--edge); border-radius:18px;
+    padding:16px 15px 14px; display:flex; flex-direction:column; gap:14px;
+    box-shadow:0 10px 40px rgba(0,0,0,.35);
+    position:sticky; top:12px;
+  }
+  .hubtop{text-align:center;}
+  .hubtop h2{
+    font-size:11px; font-weight:700; letter-spacing:.2em; color:var(--dim);
+    text-transform:uppercase;
+  }
+  .songwrap{position:relative; width:150px; height:150px; margin:2px auto 0;}
+  .songwrap svg{position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg);}
+  .songwrap .ringbg{fill:none; stroke:rgba(255,255,255,.07); stroke-width:4;}
+  .songwrap .ringfg{fill:none; stroke:var(--rec); stroke-width:4; stroke-linecap:round; opacity:0;}
+  #songBtn{
+    position:absolute; inset:14px; border-radius:50%; cursor:pointer;
+    background:radial-gradient(circle at 35% 28%, #3a2020, #201417 70%);
+    border:1px solid rgba(255,68,56,.35);
+    color:var(--ink); font-family:inherit;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    box-shadow:0 6px 20px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
+    transition:transform .06s, box-shadow .2s, border-color .2s;
+  }
+  #songBtn:hover{border-color:rgba(255,68,56,.7); box-shadow:0 6px 26px rgba(255,68,56,.18), inset 0 1px 0 rgba(255,255,255,.06);}
+  #songBtn:active{transform:scale(.97);}
+  #songBtn .dot{
+    width:15px; height:15px; border-radius:50%; background:var(--rec);
+    box-shadow:0 0 12px rgba(255,68,56,.6);
+  }
+  #songBtn .sq{width:13px; height:13px; border-radius:2px; background:var(--rec); display:none;}
+  #songBtn .st{font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase;}
+  #songBtn .sc{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim);}
+  #songBtn.rec{border-color:var(--rec); background:radial-gradient(circle at 35% 28%, #4a1a17, #2a1210 70%);}
+  #songBtn.rec .dot{display:none;}
+  #songBtn.rec .sq{display:block;}
+  #songBtn.rec .sc{color:#ffb4ae;}
+  .songwrap.rec .ringfg{opacity:1;}
+
+  .hubrow{display:flex; gap:8px;}
+  .hubrow .mbtn{flex:1; padding:9px 0; text-align:center;}
+  .hubdiv{height:1px; background:var(--edge); margin:1px 0;}
+  .fxhead{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:10px; font-weight:700; letter-spacing:.16em; color:var(--dim);
+    text-transform:uppercase; cursor:pointer; user-select:none;
+  }
+  .fxhead .caret{transition:transform .2s; font-size:9px;}
+  .fxhead.open .caret{transform:rotate(90deg);}
+  .fxgroup{display:flex; flex-direction:column; gap:7px; padding:2px 0 4px;}
+  .fxgroup[hidden]{display:none;}
+  .fxsec{
+    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.12em;
+    color:#565b66; text-transform:uppercase; margin-top:3px;
+  }
+  .toggle{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:10px; font-weight:600; letter-spacing:.1em; color:var(--dim);
+    text-transform:uppercase; cursor:pointer;
+  }
+  .toggle input{appearance:none; -webkit-appearance:none; margin:0;}
+  .toggle .sw{
+    width:32px; height:17px; border-radius:9px; background:#31363f;
+    border:1px solid var(--edge); position:relative; transition:background .18s;
+  }
+  .toggle .sw::after{
+    content:""; position:absolute; top:2px; left:2px; width:11px; height:11px;
+    border-radius:50%; background:var(--dim); transition:transform .18s, background .18s;
+  }
+  .toggle input:checked + .sw{background:#1d4030;}
+  .toggle input:checked + .sw::after{transform:translateX(15px); background:var(--t3);}
+  #addTrack{
+    font-family:inherit; font-size:11px; font-weight:600; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--t3);
+    background:transparent; border:1px dashed rgba(61,220,132,.35); border-radius:9px;
+    padding:10px 0; cursor:pointer; transition:background .15s, border-color .15s;
+  }
+  #addTrack:hover{background:rgba(61,220,132,.08); border-color:rgba(61,220,132,.7);}
+  #addTrack:disabled{opacity:.3; cursor:default;}
 
   footer{
     text-align:center; padding:0 22px 18px; color:var(--dim);
@@ -146,7 +245,7 @@
   #intro{
     display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap;
     margin:0 22px 14px; padding:10px 40px 10px 16px; position:relative;
-    max-width:1136px; margin-left:auto; margin-right:auto;
+    max-width:1456px; margin-left:auto; margin-right:auto;
     background:var(--panel); border:1px solid var(--edge); border-radius:12px;
     font-size:12px; letter-spacing:.03em; color:var(--dim);
   }
@@ -179,14 +278,12 @@
 <header>
   <div class="logo">
     <h1>LOOP<span>DECK</span></h1>
-    <small>4-track live looper</small>
+    <small>live looper</small>
   </div>
   <div class="master">
-    <button class="mbtn" id="playAll">&#9654; Play all</button>
-    <button class="mbtn" id="stopAll">&#9632; Stop all</button>
-    <button class="mbtn" id="songBtn">&#9679; Record song</button>
-    <label class="mvol">Master
-      <input type="range" id="masterVol" min="0" max="1" step="0.01" value="0.9" style="width:110px">
+    <label class="knob" style="width:190px">
+      <span class="kl">Master</span>
+      <input type="range" id="masterVol" min="0" max="1" step="0.01" value="0.9">
     </label>
   </div>
 </header>
@@ -202,34 +299,175 @@
 
 <div id="micwarn">Microphone access is blocked — recording is disabled, but you can still drop your own audio files onto any track.</div>
 
-<main id="deck"></main>
+<main id="deck">
+  <section class="hub" id="hub">
+    <div class="hubtop">
+      <h2>Song recorder</h2>
+      <div class="songwrap" id="songWrap">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="ringbg" cx="50" cy="50" r="47"></circle>
+          <circle class="ringfg" id="songRing" cx="50" cy="50" r="47"></circle>
+        </svg>
+        <button id="songBtn" aria-label="Record song">
+          <span class="dot"></span><span class="sq"></span>
+          <span class="st">Record</span>
+          <span class="sc" id="songClock">song</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="hubrow">
+      <button class="mbtn" id="playAll">&#9654; Play</button>
+      <button class="mbtn" id="stopAll">&#9632; Stop</button>
+    </div>
+
+    <div class="hubdiv"></div>
+
+    <div class="fxhead open" id="fxHead" role="button" tabindex="0" aria-expanded="true" aria-controls="fxGroup">
+      <span>Sound shaping</span><span class="caret">&#9654;</span>
+    </div>
+    <div class="fxgroup" id="fxGroup">
+      <div class="fxsec">Equaliser</div>
+      <label class="knob"><span class="kl">Low</span><input type="range" id="eqLo" min="-15" max="15" step="0.5" value="0"><span class="kv" id="eqLoV">0dB</span></label>
+      <label class="knob"><span class="kl">Mid</span><input type="range" id="eqMid" min="-15" max="15" step="0.5" value="0"><span class="kv" id="eqMidV">0dB</span></label>
+      <label class="knob"><span class="kl">High</span><input type="range" id="eqHi" min="-15" max="15" step="0.5" value="0"><span class="kv" id="eqHiV">0dB</span></label>
+
+      <div class="fxsec">Reverb</div>
+      <label class="knob"><span class="kl">Size</span><input type="range" id="rvSize" min="0.3" max="6" step="0.1" value="2.2"><span class="kv" id="rvSizeV">2.2s</span></label>
+      <label class="knob"><span class="kl">Level</span><input type="range" id="rvLevel" min="0" max="1.5" step="0.01" value="0.9"><span class="kv" id="rvLevelV">90%</span></label>
+
+      <div class="fxsec">Echo</div>
+      <label class="knob"><span class="kl">Time</span><input type="range" id="dlTime" min="0.05" max="1.2" step="0.01" value="0.32"><span class="kv" id="dlTimeV">320ms</span></label>
+      <label class="knob"><span class="kl">Fdbk</span><input type="range" id="dlFb" min="0" max="0.85" step="0.01" value="0.35"><span class="kv" id="dlFbV">35%</span></label>
+      <label class="knob"><span class="kl">Mix</span><input type="range" id="dlMix" min="0" max="1" step="0.01" value="0"><span class="kv" id="dlMixV">0%</span></label>
+
+      <div class="fxsec">Bus</div>
+      <label class="toggle">Glue compressor
+        <input type="checkbox" id="compOn"><span class="sw"></span>
+      </label>
+      <button class="mbtn" id="fxReset" style="margin-top:4px">Reset FX</button>
+    </div>
+
+    <div class="hubdiv"></div>
+    <button id="addTrack">+ Add track</button>
+  </section>
+</main>
 
 <footer>
   Tap a pad to <strong>record → loop → overdub</strong>. Drop an audio file on any track to use your own sound.
-  <strong>&#9679; Record song</strong> captures your loops + live vocals into a downloadable WAV.
-  Keys <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> trigger tracks &nbsp;·&nbsp; <kbd>Space</kbd> stops all.
+  The centre <strong>&#9679; Record</strong> dial captures your loops + live vocals into a downloadable WAV.
+  Keys <kbd>1</kbd>&hellip;<kbd>9</kbd> trigger tracks &nbsp;·&nbsp; <kbd>Space</kbd> stops all.
 </footer>
 
 <script>
 (() => {
 "use strict";
 
-const HUES = [
-  {name:"TRACK 1", css:"--t1", color:"#ff5d4d"},
-  {name:"TRACK 2", css:"--t2", color:"#ffb02e"},
-  {name:"TRACK 3", css:"--t3", color:"#3ddc84"},
-  {name:"TRACK 4", css:"--t4", color:"#4dc3ff"},
-];
+/* track colours: first four are the classic deck hues, further tracks are generated */
+const PALETTE = ["#ff5d4d","#ffb02e","#3ddc84","#4dc3ff","#c08bff","#ff7ab8","#7de2d1","#f4a259"];
+const MAX_TRACKS = 12;
+
+function hslToHex(h,s,l){
+  s/=100; l/=100;
+  const k = n => (n + h/30) % 12;
+  const a = s * Math.min(l, 1-l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
+  const to = n => Math.round(255*f(n)).toString(16).padStart(2,"0");
+  return "#" + to(0) + to(8) + to(4);
+}
+function colorFor(i){
+  return i < PALETTE.length ? PALETTE[i] : hslToHex((i*47) % 360, 78, 66);
+}
 
 let ctx = null, masterGain = null;
+let busIn = null, eqLoN = null, eqMidN = null, eqHiN = null, postEq = null;
+let compNode = null, compOut = null, dryOut = null;
+let reverbBus = null, convolver = null, reverbReturn = null;
+let delaySend = null, delayNode = null, delayFb = null;
 let micStream = null, micSource = null, micDenied = false;
+
+/* ---------------- master FX chain ----------------
+   track.gain ─┬──────────────────────────────────────────────→ busIn
+               └→ track.sendGain → reverbBus → convolver → reverbReturn ┘
+   busIn → eqLo → eqMid → eqHi → postEq ─┬→ compNode → compOut ┬→ masterGain → destination
+                                          └→ dryOut ───────────┘        ↑
+   postEq is also tapped by delaySend → delayNode (⇄ delayFb) ──────────┘
+   The echo returns to masterGain, NOT to postEq: returning it to the node the send
+   taps would make the loop gain (mix + feedback), which runs away above 1.
+-------------------------------------------------------------- */
+function buildChain(){
+  masterGain = ctx.createGain();
+  masterGain.gain.value = parseFloat(masterVolEl.value);
+  masterGain.connect(ctx.destination);
+
+  busIn  = ctx.createGain();
+  postEq = ctx.createGain();
+
+  eqLoN = ctx.createBiquadFilter();  eqLoN.type = "lowshelf";  eqLoN.frequency.value = 220;
+  eqMidN = ctx.createBiquadFilter(); eqMidN.type = "peaking";  eqMidN.frequency.value = 1100; eqMidN.Q.value = 0.9;
+  eqHiN = ctx.createBiquadFilter();  eqHiN.type = "highshelf"; eqHiN.frequency.value = 4200;
+
+  busIn.connect(eqLoN); eqLoN.connect(eqMidN); eqMidN.connect(eqHiN); eqHiN.connect(postEq);
+
+  compNode = ctx.createDynamicsCompressor();
+  compNode.threshold.value = -20; compNode.knee.value = 26;
+  compNode.ratio.value = 3.2; compNode.attack.value = 0.006; compNode.release.value = 0.22;
+  compOut = ctx.createGain(); compOut.gain.value = 0;   // compressor off by default
+  dryOut  = ctx.createGain(); dryOut.gain.value  = 1;
+  postEq.connect(compNode); compNode.connect(compOut); compOut.connect(masterGain);
+  postEq.connect(dryOut); dryOut.connect(masterGain);
+
+  // shared reverb: one convolver fed by every track's send
+  reverbBus = ctx.createGain();
+  convolver = ctx.createConvolver();
+  convolver.buffer = makeIR(parseFloat(rvSizeEl.value));
+  reverbReturn = ctx.createGain();
+  reverbReturn.gain.value = parseFloat(rvLevelEl.value);
+  reverbBus.connect(convolver); convolver.connect(reverbReturn); reverbReturn.connect(busIn);
+
+  // echo
+  delaySend = ctx.createGain(); delaySend.gain.value = parseFloat(dlMixEl.value);
+  delayNode = ctx.createDelay(2.0); delayNode.delayTime.value = parseFloat(dlTimeEl.value);
+  delayFb = ctx.createGain(); delayFb.gain.value = parseFloat(dlFbEl.value);
+  postEq.connect(delaySend); delaySend.connect(delayNode);
+  delayNode.connect(delayFb); delayFb.connect(delayNode);   // regeneration
+  delayNode.connect(masterGain);                             // return downstream of the tap
+
+  if(compOnEl.checked) setComp(true);
+}
+
+/* exponentially decaying noise burst — a cheap, dependency-free reverb tail */
+function makeIR(seconds){
+  const rate = ctx.sampleRate;
+  const len = Math.max(1, Math.floor(rate * seconds));
+  const ir = ctx.createBuffer(2, len, rate);
+  for(let ch=0; ch<2; ch++){
+    const d = ir.getChannelData(ch);
+    for(let n=0; n<len; n++){
+      const t = n/len;
+      d[n] = (Math.random()*2 - 1) * Math.pow(1-t, 2.6);
+    }
+    // soften the first few ms so the tail blooms instead of clicking
+    const pre = Math.min(len, Math.floor(rate*0.012));
+    for(let n=0;n<pre;n++) d[n] *= n/pre;
+  }
+  return ir;
+}
+
+function setComp(on){
+  if(!ctx) return;
+  const t = ctx.currentTime;
+  compOut.gain.setTargetAtTime(on ? 1 : 0, t, .03);
+  dryOut.gain.setTargetAtTime(on ? 0 : 1, t, .03);
+}
 
 function audio(){
   if(!ctx){
     ctx = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = ctx.createGain();
-    masterGain.gain.value = parseFloat(masterVolEl.value);
-    masterGain.connect(ctx.destination);
+    buildChain();
+    // push any slider moved before the first gesture into the freshly built nodes
+    syncers.forEach(fn => fn());
+    for(const t of tracks) t.applyReverb();
   }
   if(ctx.state === "suspended") ctx.resume();
   return ctx;
@@ -255,13 +493,15 @@ async function getMic(){
 class Track{
   constructor(i, root){
     this.i = i;
-    this.hue = HUES[i];
+    this.color = colorFor(i);
     this.state = "empty";           // empty | recording | playing | overdub | stopped
     this.buffer = null;             // AudioBuffer (mono)
     this.source = null;
     this.startTime = 0;             // ctx time the current loop pass began (t=0 of loop)
     this.gain = null;
+    this.sendGain = null;           // post-fader feed into the shared reverb bus
     this.volume = 0.9;
+    this.reverb = 0;                // 0..1 send amount
     this.recChunks = [];            // Float32Array chunks while recording
     this.recAmps = [];              // live amplitude preview
     this.recNode = null;
@@ -274,18 +514,21 @@ class Track{
   buildDOM(root){
     const el = document.createElement("section");
     el.className = "track";
-    el.style.setProperty("--tc", this.hue.color);
+    el.style.setProperty("--tc", this.color);
     el.innerHTML = `
       <div class="thead">
-        <span class="tname">${this.hue.name}</span>
-        <span class="tstate">empty</span>
+        <span class="tname"></span>
+        <span class="theadr">
+          <span class="tstate">empty</span>
+          <button class="trm" title="Remove track" aria-label="Remove track" hidden>&#215;</button>
+        </span>
       </div>
       <div class="padwrap">
         <canvas></canvas>
-        <button class="padbtn" aria-label="${this.hue.name} main pad">
+        <button class="padbtn">
           <span class="lbl">REC</span>
           <span class="clock"></span>
-          <span class="hint">key ${this.i+1}</span>
+          <span class="hint"></span>
         </button>
       </div>
       <div class="trow">
@@ -295,7 +538,12 @@ class Track{
       </div>
       <div class="vol">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
-        <input type="range" min="0" max="1" step="0.01" value="0.9" aria-label="${this.hue.name} volume">
+        <input type="range" min="0" max="1" step="0.01" value="0.9">
+      </div>
+      <div class="knob">
+        <span class="kl">Rvb</span>
+        <input type="range" class="rvb" min="0" max="1" step="0.01" value="0">
+        <span class="kv rvbv">0%</span>
       </div>
       <input type="file" accept="audio/*" hidden>
     `;
@@ -306,20 +554,32 @@ class Track{
     this.pad = el.querySelector(".padbtn");
     this.lbl = el.querySelector(".lbl");
     this.clock = el.querySelector(".clock");
+    this.hint = el.querySelector(".hint");
+    this.nameEl = el.querySelector(".tname");
     this.stateEl = el.querySelector(".tstate");
+    this.rmBtn = el.querySelector(".trm");
+    this.volInput = el.querySelector(".vol input");
+    this.rvbInput = el.querySelector(".rvb");
+    this.rvbVal = el.querySelector(".rvbv");
     this.fileInput = el.querySelector("input[type=file]");
 
     this.pad.addEventListener("click", () => this.tap());
     el.querySelector(".stop").addEventListener("click", () => this.stopPlayback());
     el.querySelector(".clear").addEventListener("click", () => this.clear());
     el.querySelector(".load").addEventListener("click", () => this.fileInput.click());
+    this.rmBtn.addEventListener("click", () => removeTrack(this));
     this.fileInput.addEventListener("change", e => {
       if(e.target.files[0]) this.loadFile(e.target.files[0]);
       e.target.value = "";
     });
-    el.querySelector(".vol input").addEventListener("input", e => {
+    this.volInput.addEventListener("input", e => {
       this.volume = parseFloat(e.target.value);
       if(this.gain) this.gain.gain.setTargetAtTime(this.volume, audio().currentTime, .02);
+    });
+    this.rvbInput.addEventListener("input", e => {
+      this.reverb = parseFloat(e.target.value);
+      this.rvbVal.textContent = Math.round(this.reverb*100) + "%";
+      this.applyReverb();
     });
 
     ["dragover","dragenter"].forEach(ev => el.addEventListener(ev, e => {
@@ -332,6 +592,28 @@ class Track{
       const f = [...e.dataTransfer.files].find(f => f.type.startsWith("audio") || /\.(wav|mp3|ogg|m4a|aac|flac|webm)$/i.test(f.name));
       if(f) this.loadFile(f);
     });
+
+    this.relabel(this.i);
+  }
+
+  /* index can change when an earlier track is removed */
+  relabel(i){
+    this.i = i;
+    this.color = colorFor(i);
+    this.el.style.setProperty("--tc", this.color);
+    this.nameEl.textContent = "TRACK " + (i+1);
+    this.pad.setAttribute("aria-label", "Track " + (i+1) + " main pad");
+    this.volInput.setAttribute("aria-label", "Track " + (i+1) + " volume");
+    this.rvbInput.setAttribute("aria-label", "Track " + (i+1) + " reverb send");
+    this.hint.textContent = i < 9 ? "key " + (i+1) : "";
+    this.rmBtn.hidden = i < 4;
+    // keeps the hub visually between the tracks when the grid collapses to 2 columns
+    this.el.style.order = i < 2 ? 1 : 3;
+  }
+
+  applyReverb(){
+    if(!this.sendGain || !ctx) return;
+    this.sendGain.gain.setTargetAtTime(this.reverb, ctx.currentTime, .02);
   }
 
   setState(s){
@@ -433,7 +715,11 @@ class Track{
     if(!this.buffer) return;
     this.gain = ctx.createGain();
     this.gain.gain.value = this.volume;
-    this.gain.connect(masterGain);
+    this.gain.connect(busIn);
+    this.sendGain = ctx.createGain();
+    this.sendGain.gain.value = this.reverb;
+    this.gain.connect(this.sendGain);      // post-fader send
+    this.sendGain.connect(reverbBus);
     this.source = ctx.createBufferSource();
     this.source.buffer = this.buffer;
     this.source.loop = true;
@@ -450,6 +736,7 @@ class Track{
 
   stopSource(){
     if(this.source){ try{ this.source.stop(); }catch(e){} this.source.disconnect(); this.source = null; }
+    if(this.sendGain){ this.sendGain.disconnect(); this.sendGain = null; }
     if(this.gain){ this.gain.disconnect(); this.gain = null; }
   }
 
@@ -465,6 +752,12 @@ class Track{
     this.buffer = null; this.peaks = null; this.recChunks = []; this.recAmps = [];
     this.clock.textContent = "";
     this.setState("empty");
+  }
+
+  dispose(){
+    this.stopRecNode(); this.stopSource();
+    if(this._sink){ this._sink.disconnect(); this._sink = null; }
+    this.el.remove();
   }
 
   async loadFile(file){
@@ -514,12 +807,13 @@ class Track{
     const c = this.canvas, x = this.cx;
     const dpr = window.devicePixelRatio||1;
     const w = c.clientWidth, h = c.clientHeight;
+    if(!w || !h) return;
     if(c.width !== w*dpr){ c.width = w*dpr; c.height = h*dpr; }
     x.setTransform(dpr,0,0,dpr,0,0);
     x.clearRect(0,0,w,h);
     const cx0=w/2, cy0=h/2, R=Math.min(w,h)/2;
     const innerR = R*0.62, maxAmp = R*0.30;
-    const col = this.hue.color;
+    const col = this.color;
 
     // base ring
     x.beginPath(); x.arc(cx0,cy0,innerR,0,Math.PI*2);
@@ -596,7 +890,50 @@ class Track{
 /* ---------------- boot ---------------- */
 const masterVolEl = document.getElementById("masterVol");
 const deck = document.getElementById("deck");
-const tracks = HUES.map((_,i)=>new Track(i, deck));
+const hub  = document.getElementById("hub");
+const addBtn = document.getElementById("addTrack");
+
+const eqLoEl = document.getElementById("eqLo"), eqMidEl = document.getElementById("eqMid"), eqHiEl = document.getElementById("eqHi");
+const rvSizeEl = document.getElementById("rvSize"), rvLevelEl = document.getElementById("rvLevel");
+const dlTimeEl = document.getElementById("dlTime"), dlFbEl = document.getElementById("dlFb"), dlMixEl = document.getElementById("dlMix");
+const compOnEl = document.getElementById("compOn");
+
+const tracks = [];
+
+function addTrack(){
+  if(tracks.length >= MAX_TRACKS) return;
+  const t = new Track(tracks.length, deck);
+  tracks.push(t);
+  addBtn.disabled = tracks.length >= MAX_TRACKS;
+  layout();
+  return t;
+}
+
+function removeTrack(t){
+  const idx = tracks.indexOf(t);
+  if(idx < 0 || tracks.length <= 4) return;
+  t.dispose();
+  tracks.splice(idx, 1);
+  tracks.forEach((tr,i) => tr.relabel(i));
+  addBtn.disabled = tracks.length >= MAX_TRACKS;
+  layout();
+}
+
+/* the hub occupies the centre column; tracks flow around it (2 | hub | 2 per row) */
+const wide = window.matchMedia("(min-width:1141px)");
+function layout(){
+  if(wide.matches){
+    const rows = Math.max(1, Math.ceil(tracks.length / 4));
+    hub.style.gridRow = "1 / span " + rows;
+  } else {
+    hub.style.gridRow = "";
+  }
+}
+wide.addEventListener("change", layout);
+window.addEventListener("resize", layout);
+
+for(let i=0;i<4;i++) addTrack();
+addBtn.addEventListener("click", () => { audio(); addTrack(); });
 
 masterVolEl.addEventListener("input", e=>{
   if(masterGain) masterGain.gain.setTargetAtTime(parseFloat(e.target.value), ctx.currentTime, .02);
@@ -607,12 +944,65 @@ document.getElementById("playAll").addEventListener("click", ()=>{
   tracks.forEach(t=>{ if(t.state==="stopped" && t.buffer) t.play(0); });
 });
 
+/* ---------------- FX controls ---------------- */
+function bindParam(el, valEl, fmt, apply){
+  const run = () => {
+    const v = parseFloat(el.value);
+    valEl.textContent = fmt(v);
+    if(ctx) apply(v);
+  };
+  el.addEventListener("input", run);
+  run();
+  return run;
+}
+
+const eqLoV = document.getElementById("eqLoV"), eqMidV = document.getElementById("eqMidV"), eqHiV = document.getElementById("eqHiV");
+const rvSizeV = document.getElementById("rvSizeV"), rvLevelV = document.getElementById("rvLevelV");
+const dlTimeV = document.getElementById("dlTimeV"), dlFbV = document.getElementById("dlFbV"), dlMixV = document.getElementById("dlMixV");
+
+const db = v => (v>0?"+":"") + v.toFixed(0) + "dB";
+const pct = v => Math.round(v*100) + "%";
+
+const syncers = [
+  bindParam(eqLoEl,  eqLoV,  db,  v => eqLoN.gain.setTargetAtTime(v, ctx.currentTime, .02)),
+  bindParam(eqMidEl, eqMidV, db,  v => eqMidN.gain.setTargetAtTime(v, ctx.currentTime, .02)),
+  bindParam(eqHiEl,  eqHiV,  db,  v => eqHiN.gain.setTargetAtTime(v, ctx.currentTime, .02)),
+  bindParam(rvSizeEl,  rvSizeV,  v => v.toFixed(1)+"s", v => { convolver.buffer = makeIR(v); }),
+  bindParam(rvLevelEl, rvLevelV, pct, v => reverbReturn.gain.setTargetAtTime(v, ctx.currentTime, .03)),
+  bindParam(dlTimeEl, dlTimeV, v => Math.round(v*1000)+"ms", v => delayNode.delayTime.setTargetAtTime(v, ctx.currentTime, .05)),
+  bindParam(dlFbEl,   dlFbV,   pct, v => delayFb.gain.setTargetAtTime(v, ctx.currentTime, .03)),
+  bindParam(dlMixEl,  dlMixV,  pct, v => delaySend.gain.setTargetAtTime(v, ctx.currentTime, .03)),
+];
+
+compOnEl.addEventListener("change", () => setComp(compOnEl.checked));
+
+document.getElementById("fxReset").addEventListener("click", () => {
+  const defaults = [[eqLoEl,0],[eqMidEl,0],[eqHiEl,0],[rvSizeEl,2.2],[rvLevelEl,0.9],[dlTimeEl,0.32],[dlFbEl,0.35],[dlMixEl,0]];
+  defaults.forEach(([el,v]) => { el.value = v; });
+  syncers.forEach(fn => fn());
+  compOnEl.checked = false; setComp(false);
+  tracks.forEach(t => { t.reverb = 0; t.rvbInput.value = 0; t.rvbVal.textContent = "0%"; t.applyReverb(); });
+});
+
+const fxHead = document.getElementById("fxHead"), fxGroup = document.getElementById("fxGroup");
+function toggleFx(){
+  const open = fxGroup.hasAttribute("hidden");
+  if(open) fxGroup.removeAttribute("hidden"); else fxGroup.setAttribute("hidden","");
+  fxHead.classList.toggle("open", open);
+  fxHead.setAttribute("aria-expanded", String(open));
+  layout();
+}
+fxHead.addEventListener("click", toggleFx);
+fxHead.addEventListener("keydown", e => {
+  if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggleFx(); }
+});
+
 window.addEventListener("keydown", e=>{
   if(e.repeat) return;
-  if(e.target.tagName==="INPUT") return;
+  if(e.target.tagName==="INPUT" || e.target.tagName==="BUTTON") return;
   if(e.code==="Space"){ e.preventDefault(); tracks.forEach(t=>t.stopPlayback()); }
   const n=parseInt(e.key);
-  if(n>=1 && n<=4){ tracks[n-1].tap(); }
+  if(n>=1 && n<=9 && tracks[n-1]){ tracks[n-1].tap(); }
 });
 
 const intro = document.getElementById("intro");
@@ -624,6 +1014,13 @@ document.getElementById("introClose").addEventListener("click", ()=>{
 
 /* ---------------- song recorder: loops + live vocal -> WAV download ---------------- */
 const songBtn = document.getElementById("songBtn");
+const songWrap = document.getElementById("songWrap");
+const songRing = document.getElementById("songRing");
+const songClock = document.getElementById("songClock");
+const songLbl = songBtn.querySelector(".st");
+const RING_LEN = 2 * Math.PI * 47;
+songRing.style.strokeDasharray = RING_LEN;
+
 let songNode=null, songChunks=[], songStart=0, songSink=null, songMicGain=null;
 
 function fmtTime(s){ const m=Math.floor(s/60), sec=s%60; return m+":"+sec.toFixed(1).padStart(4,"0"); }
@@ -637,7 +1034,7 @@ async function toggleSong(){
   songNode.onaudioprocess = e => {
     songChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
   };
-  masterGain.connect(songNode);                     // everything you hear
+  masterGain.connect(songNode);                     // everything you hear, post-FX
   if(mic){
     songMicGain = ctx.createGain(); songMicGain.gain.value = 1;
     micSource.connect(songMicGain); songMicGain.connect(songNode);   // vocal into the file only (no speaker feedback)
@@ -646,12 +1043,17 @@ async function toggleSong(){
   songNode.connect(songSink); songSink.connect(ctx.destination);
   songStart = ctx.currentTime;
   songBtn.classList.add("rec");
+  songWrap.classList.add("rec");
+  songLbl.textContent = "Finish";
   tickSong();
 }
 
 function tickSong(){
   if(!songNode) return;
-  songBtn.innerHTML = "&#9632; Finish &amp; download &nbsp;" + fmtTime(ctx.currentTime - songStart);
+  const el = ctx.currentTime - songStart;
+  songClock.textContent = fmtTime(el);
+  // ring sweeps once per minute as an at-a-glance length cue
+  songRing.style.strokeDashoffset = RING_LEN * (1 - (el % 60) / 60);
   requestAnimationFrame(tickSong);
 }
 
@@ -661,7 +1063,9 @@ function finishSong(){
   songNode.disconnect(); songNode.onaudioprocess=null; songNode=null;
   if(songSink){ songSink.disconnect(); songSink=null; }
   songBtn.classList.remove("rec");
-  songBtn.innerHTML = "&#9679; Record song";
+  songWrap.classList.remove("rec");
+  songLbl.textContent = "Record";
+  songClock.textContent = "song";
   const len = songChunks.reduce((a,c)=>a+c.length,0);
   if(len < ctx.sampleRate*0.2){ songChunks=[]; return; }
   const data = new Float32Array(len);
