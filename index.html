@@ -159,11 +159,15 @@
   }
 
   /* ---------- console: full-width block under the deck ---------- */
+  /* FX panel is revealed by the "Advanced" button, so the second column only exists when open */
   .console{
     max-width:1500px; width:100%; margin:0 auto; padding:0 22px 22px;
-    display:grid; grid-template-columns:262px 1fr; gap:16px; align-items:stretch;
+    display:grid; grid-template-columns:262px; gap:16px; align-items:stretch;
   }
-  @media (max-width:900px){ .console{grid-template-columns:1fr;} }
+  .console.fxopen{grid-template-columns:262px 1fr;}
+  @media (max-width:900px){
+    .console, .console.fxopen{grid-template-columns:1fr;}
+  }
   .cpanel{
     background:linear-gradient(180deg, #23272f, #171a1f);
     border:1px solid var(--edge); border-radius:18px;
@@ -205,17 +209,19 @@
 
   .hubrow{display:flex; gap:8px;}
   .hubrow .mbtn{flex:1; padding:9px 0; text-align:center;}
-  .fxhead{
-    display:flex; align-items:center; justify-content:space-between;
+  .fxtoggle{
+    display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+  }
+  .fxtoggle .caret{transition:transform .2s; font-size:9px; color:var(--dim);}
+  .fxtoggle[aria-expanded="true"]{background:#2e3440; color:var(--t3); border-color:rgba(61,220,132,.35);}
+  .fxtoggle[aria-expanded="true"] .caret{transform:rotate(90deg); color:var(--t3);}
+  .fxtitle{
     font-size:10px; font-weight:700; letter-spacing:.16em; color:var(--dim);
-    text-transform:uppercase; cursor:pointer; user-select:none;
+    text-transform:uppercase;
     padding-bottom:11px; margin-bottom:11px; border-bottom:1px solid var(--edge);
   }
-  .fxhead .caret{transition:transform .2s; font-size:9px;}
-  .fxhead.open .caret{transform:rotate(90deg);}
   /* FX laid out as columns across the width instead of one tall stack */
   .fxgroup{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px 24px;}
-  .fxgroup[hidden]{display:none;}
   @media (max-width:1180px){ .fxgroup{grid-template-columns:repeat(2, minmax(0,1fr));} }
   @media (max-width:560px){ .fxgroup{grid-template-columns:1fr;} }
   .fxcol{display:flex; flex-direction:column; gap:7px;}
@@ -331,12 +337,13 @@
       <button class="mbtn" id="playAll">&#9654; Play</button>
       <button class="mbtn" id="stopAll">&#9632; Stop</button>
     </div>
+    <button class="mbtn fxtoggle" id="fxToggle" aria-expanded="false" aria-controls="fxPanel">
+      <span>Advanced</span><span class="caret">&#9654;</span>
+    </button>
   </div>
 
-  <div class="cpanel">
-    <div class="fxhead open" id="fxHead" role="button" tabindex="0" aria-expanded="true" aria-controls="fxGroup">
-      <span>Sound shaping</span><span class="caret">&#9654;</span>
-    </div>
+  <div class="cpanel" id="fxPanel" hidden>
+    <div class="fxtitle">Sound shaping</div>
     <div class="fxgroup" id="fxGroup">
       <div class="fxcol">
         <div class="fxsec">Equaliser</div>
@@ -371,7 +378,7 @@
 
 <footer>
   Tap a pad to <strong>record → loop → overdub</strong>. Drop an audio file on any track to use your own sound.
-  The centre <strong>&#9679; Record</strong> dial captures your loops + live vocals into a downloadable WAV.
+  The <strong>&#9679; Record</strong> dial below captures your loops + live vocals into a downloadable WAV &mdash; <strong>Advanced</strong> opens EQ, reverb and echo.
   Keys <kbd>1</kbd>&hellip;<kbd>9</kbd> trigger tracks &nbsp;·&nbsp; <kbd>Space</kbd> stops all.
 </footer>
 
@@ -982,16 +989,13 @@ document.getElementById("fxReset").addEventListener("click", () => {
   tracks.forEach(t => { t.reverb = 0; t.rvbInput.value = 0; t.rvbVal.textContent = "0%"; t.applyReverb(); });
 });
 
-const fxHead = document.getElementById("fxHead"), fxGroup = document.getElementById("fxGroup");
-function toggleFx(){
-  const open = fxGroup.hasAttribute("hidden");
-  if(open) fxGroup.removeAttribute("hidden"); else fxGroup.setAttribute("hidden","");
-  fxHead.classList.toggle("open", open);
-  fxHead.setAttribute("aria-expanded", String(open));
-}
-fxHead.addEventListener("click", toggleFx);
-fxHead.addEventListener("keydown", e => {
-  if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggleFx(); }
+/* "Advanced" in the recorder tile reveals the sound-shaping panel beside it */
+const fxToggle = document.getElementById("fxToggle"), fxPanel = document.getElementById("fxPanel");
+fxToggle.addEventListener("click", () => {
+  const open = fxPanel.hasAttribute("hidden");
+  if(open) fxPanel.removeAttribute("hidden"); else fxPanel.setAttribute("hidden","");
+  fxToggle.setAttribute("aria-expanded", String(open));
+  document.querySelector(".console").classList.toggle("fxopen", open);
 });
 
 window.addEventListener("keydown", e=>{

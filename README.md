@@ -133,7 +133,9 @@ One global `requestAnimationFrame` loop calls `draw()` on every track. Each canv
 Two stacked regions:
 
 1. **The deck** (`<main>`) — a single `repeat(auto-fill, minmax(240px, 1fr))` grid holding every track card plus the dashed **"+ Add track"** ghost card. `auto-fill` is deliberate: it lets the add-card share a row with the tracks when there is width for it, rather than stranding it on a row of its own. It also removes the need for column breakpoints — the grid reflows itself.
-2. **The console** (`.console`) — a full-width block *below* the deck, split `262px | 1fr` into the song recorder (dial + transport) and the FX panel. Below 900 px the two stack.
+2. **The console** (`.console`) — a full-width block *below* the deck holding the song recorder (dial + transport + **Advanced**) and, when revealed, the FX panel.
+
+**The FX panel is hidden by default** and opened by the `#fxToggle` "Advanced" button inside the recorder tile. The console is a single `262px` column when closed and `262px | 1fr` when open — the `.fxopen` class on `.console` adds the second column, so the layout does not reserve space for a hidden panel. Below 900 px both states collapse to one column. Keeping the FX behind a toggle keeps the default view to just the dial and transport; everything in the panel is a refinement, not something needed to record a loop.
 
 The FX panel lays its four groups (Equaliser / Reverb / Echo / Bus) out as grid **columns**, dropping to 2 columns under 1180 px and 1 under 560 px. It was originally a single tall stack in a centre column; that made the deck row awkwardly tall and pushed "Add track" below the fold, which is why the recorder moved out to its own full-width block.
 
@@ -155,7 +157,7 @@ Track colours come from `colorFor(i)`: the first four are the original deck hues
 - **Record song** — the large dial in the console. Captures master mix (post-FX) + live mic, downloads `loopdeck-song.wav` on stop. Works without mic (instrumental only). The progress ring sweeps once per minute as a length cue.
 - **Add / remove track** — the dashed card at the end of the deck. Starts at 4, up to `MAX_TRACKS` (12); the card disables at the cap. The first four cannot be removed; extras carry an `×`. Removing renumbers and recolours the rest.
 - **Per-track reverb (`RVB`)** — post-fader send into the shared reverb bus. 0 % by default, so the deck sounds unchanged until you reach for it.
-- **Sound shaping (console)** — collapsible panel of master effects:
+- **Sound shaping** — hidden until you press **Advanced** in the recorder tile. Panel of master effects:
   - **Equaliser** — low shelf @ 220 Hz, peaking @ 1.1 kHz (Q 0.9), high shelf @ 4.2 kHz, ±15 dB each.
   - **Reverb** — `Size` (0.3–6 s, regenerates the IR) and `Level` (the shared return).
   - **Echo** — `Time` (50 ms–1.2 s), `Fdbk` (regeneration, capped at 0.85), `Mix` (send level, 0 % by default).
