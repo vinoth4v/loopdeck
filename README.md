@@ -112,7 +112,6 @@ Each track is an instance of `class Track` holding one mono `AudioBuffer`. One p
 | `addTrack()` / `removeTrack(t)` | boot | Grow/shrink the deck (4 minimum, `MAX_TRACKS` = 12). Removal renumbers and recolours survivors via `relabel()`. |
 | `Track.relabel(i)` | `Track` | Reassigns index, name, colour, key hint, remove-button visibility and CSS `order` after the array shifts. |
 | `Track.applyReverb()` | `Track` | Pushes the track's send amount into `sendGain`. No-op before playback creates the node. |
-| `layout()` | boot | Sets the hub's `grid-row` span so it stays centred as rows are added. |
 | `getMic()` | top of script | Requests mic once, caches the stream. Sets `micDenied` and reveals the warning banner on failure. Returns `null` if unavailable — callers must handle this. |
 | `Track.tap()` | `Track` | The state machine dispatcher. All pad behaviour flows through here. |
 | `Track.finishRecording()` | `Track` | Concatenates PCM chunks into an `AudioBuffer`. Discards takes under 150 ms. |
@@ -131,9 +130,18 @@ One global `requestAnimationFrame` loop calls `draw()` on every track. Each canv
 
 ### Layout
 
-The deck is a CSS grid of `2 tracks | hub | 2 tracks`. The hub is pinned to column 3 and its `grid-row` span is recomputed by `layout()` as tracks are added, so it stays vertically centred in the deck no matter how many rows exist. Tracks are auto-placed and simply flow around it.
+Two stacked regions:
 
-Below 1140 px the grid collapses to 2 columns and the hub spans the full width. Because the hub is the first child in DOM order, each track carries an inline `order` (1 for the first two, 3 for the rest) so the hub still lands *between* tracks rather than above them. Below 460 px everything stacks to one column.
+1. **The deck** (`<main>`) — a single `repeat(auto-fill, minmax(240px, 1fr))` grid holding every track card plus the dashed **"+ Add track"** ghost card. `auto-fill` is deliberate: it lets the add-card share a row with the tracks when there is width for it, rather than stranding it on a row of its own. It also removes the need for column breakpoints — the grid reflows itself.
+2. **The console** (`.console`) — a full-width block *below* the deck, split `262px | 1fr` into the song recorder (dial + transport) and the FX panel. Below 900 px the two stack.
+
+The FX panel lays its four groups (Equaliser / Reverb / Echo / Bus) out as grid **columns**, dropping to 2 columns under 1180 px and 1 under 560 px. It was originally a single tall stack in a centre column; that made the deck row awkwardly tall and pushed "Add track" below the fold, which is why the recorder moved out to its own full-width block.
+
+`.padwrap` is capped at `max-width:190px`. Without the cap the pad's `aspect-ratio:1` makes card height track card width, so wide cards become very tall.
+
+**Ordering constraint:** the add-card is a static child of `<main>`, so `Track.buildDOM` must `insertBefore` it — not `appendChild` — or new tracks land after it.
+
+Track colours come from `colorFor(i)`: the first four are the original deck hues, beyond that they are generated on a 47° hue rotation via `hslToHex`. `Track.dimmed()` parses hex, so `colorFor` must always return hex — not `hsl()`.
 
 Track colours come from `colorFor(i)`: the first four are the original deck hues, beyond that they are generated on a 47° hue rotation via `hslToHex`. `Track.dimmed()` parses hex, so `colorFor` must always return hex — not `hsl()`.
 
@@ -143,11 +151,11 @@ Track colours come from `colorFor(i)`: the first four are the original deck hues
 
 - **Pad tap** — record → loop → overdub, per the state machine above.
 - **Stop / Load sound / Clear** — per track. "Load sound" and drag-and-drop accept any browser-decodable audio (wav, mp3, ogg, m4a, aac, flac, webm); files are mixed to mono and resampled to the context rate via `OfflineAudioContext` if needed.
-- **Play / Stop** — master transport, in the centre hub. "Play" only restarts tracks in `stopped` state.
-- **Record song** — the large dial at the centre of the deck. Captures master mix (post-FX) + live mic, downloads `loopdeck-song.wav` on stop. Works without mic (instrumental only). The progress ring sweeps once per minute as a length cue.
-- **Add / remove track** — starts at 4, up to `MAX_TRACKS` (12). The first four cannot be removed; extras carry an `×`. Removing renumbers and recolours the rest.
+- **Play / Stop** — master transport, in the console below the deck. "Play" only restarts tracks in `stopped` state.
+- **Record song** — the large dial in the console. Captures master mix (post-FX) + live mic, downloads `loopdeck-song.wav` on stop. Works without mic (instrumental only). The progress ring sweeps once per minute as a length cue.
+- **Add / remove track** — the dashed card at the end of the deck. Starts at 4, up to `MAX_TRACKS` (12); the card disables at the cap. The first four cannot be removed; extras carry an `×`. Removing renumbers and recolours the rest.
 - **Per-track reverb (`RVB`)** — post-fader send into the shared reverb bus. 0 % by default, so the deck sounds unchanged until you reach for it.
-- **Sound shaping (hub)** — collapsible panel of master effects:
+- **Sound shaping (console)** — collapsible panel of master effects:
   - **Equaliser** — low shelf @ 220 Hz, peaking @ 1.1 kHz (Q 0.9), high shelf @ 4.2 kHz, ±15 dB each.
   - **Reverb** — `Size` (0.3–6 s, regenerates the IR) and `Level` (the shared return).
   - **Echo** — `Time` (50 ms–1.2 s), `Fdbk` (regeneration, capped at 0.85), `Mix` (send level, 0 % by default).
