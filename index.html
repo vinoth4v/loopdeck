@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOOPDECK — live looper</title>
+<meta name="description" content="A free 4-track live looper in your browser. Record your mic, layer overdubs, drop in your own sounds — no install needed.">
+<meta name="theme-color" content="#101216">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='none' stroke='%233ddc84' stroke-width='12'/></svg>">
+<!-- Open Graph (WhatsApp, Facebook, LinkedIn, iMessage) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="LOOPDECK">
+<meta property="og:title" content="LOOPDECK — live looper in your browser">
+<meta property="og:description" content="Tap to record, tap to loop, tap to overdub. Layer your mic and your own sounds into live loops on 4 tracks — free, no install.">
+<meta property="og:url" content="https://loopdeck-zeta.vercel.app">
+<!-- Twitter / X -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="LOOPDECK — live looper in your browser">
+<meta name="twitter:description" content="Tap to record, tap to loop, tap to overdub. Layer your mic and your own sounds into live loops on 4 tracks — free, no install.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#101216;
+    --panel:#1b1e24;
+    --panel-2:#22262e;
+    --edge:rgba(255,255,255,.06);
+    --ink:#e9e6de;
+    --dim:#7d828c;
+    --rec:#ff4438;
+    --t1:#ff5d4d; --t2:#ffb02e; --t3:#3ddc84; --t4:#4dc3ff;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -200px, #1a1e26 0%, var(--bg) 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Chakra Petch', system-ui, sans-serif;
+    display:flex; flex-direction:column; min-height:100vh;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* ---------- header ---------- */
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 22px 12px; gap:16px; flex-wrap:wrap;
+  }
+  .logo{display:flex; align-items:baseline; gap:10px;}
+  .logo h1{font-size:20px; font-weight:700; letter-spacing:.14em;}
+  .logo h1 span{color:var(--t3);}
+  .logo small{font-size:11px; color:var(--dim); letter-spacing:.08em; text-transform:uppercase;}
+  .master{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .mbtn{
+    font-family:inherit; font-weight:600; font-size:12px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--ink);
+    background:var(--panel-2); border:1px solid var(--edge); border-radius:8px;
+    padding:9px 14px; cursor:pointer; transition:background .15s, transform .05s;
+  }
+  .mbtn:hover{background:#2a2f39;}
+  .mbtn:active{transform:translateY(1px);}
+  #songBtn.rec{
+    background:#4a1512; border-color:var(--rec); color:#ffd9d6;
+    animation:blink 1.2s steps(2) infinite;
+  }
+  #songBtn.rec:hover{background:#5a1d18;}
+  .mbtn:focus-visible, button:focus-visible, input:focus-visible{outline:2px solid var(--t4); outline-offset:2px;}
+  .mvol{display:flex; align-items:center; gap:8px; color:var(--dim); font-size:11px; letter-spacing:.08em;}
+
+  /* ---------- deck ---------- */
+  main{
+    flex:1; display:grid; gap:18px; padding:10px 22px 22px;
+    grid-template-columns:repeat(4, minmax(0,1fr));
+    max-width:1180px; width:100%; margin:0 auto;
+  }
+  @media (max-width:920px){ main{grid-template-columns:repeat(2, minmax(0,1fr));} }
+  @media (max-width:400px){ main{grid-template-columns:1fr;} }
+
+  .track{
+    background:linear-gradient(180deg, var(--panel-2), var(--panel));
+    border:1px solid var(--edge); border-radius:16px;
+    padding:14px 14px 12px; display:flex; flex-direction:column; gap:10px;
+    position:relative;
+  }
+  .track.dragover{border-color:var(--tc); box-shadow:0 0 0 2px var(--tc) inset;}
+  .thead{display:flex; align-items:center; justify-content:space-between;}
+  .tname{font-size:12px; font-weight:700; letter-spacing:.16em; color:var(--tc);}
+  .tstate{
+    font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:.1em;
+    color:var(--dim); text-transform:uppercase;
+  }
+  .tstate.rec{color:var(--rec); animation:blink 1s steps(2) infinite;}
+  .tstate.dub{color:var(--tc); animation:blink 1s steps(2) infinite;}
+  @keyframes blink{50%{opacity:.25;}}
+
+  .padwrap{position:relative; width:100%; aspect-ratio:1;}
+  .padwrap canvas{position:absolute; inset:0; width:100%; height:100%;}
+  .padbtn{
+    position:absolute; inset:22%; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #2c313b, #191c22 70%);
+    border:1px solid var(--edge);
+    color:var(--ink); font-family:inherit; font-weight:700; font-size:13px;
+    letter-spacing:.14em; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    box-shadow:0 4px 14px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.07);
+    transition:transform .06s, box-shadow .15s;
+  }
+  .padbtn:active{transform:scale(.96);}
+  .padbtn .hint{font-size:9px; font-weight:500; color:var(--dim); letter-spacing:.08em;}
+  .padbtn .clock{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim); font-weight:400;}
+
+  .trow{display:flex; align-items:center; gap:8px;}
+  .tsmall{
+    flex:1; font-family:inherit; font-size:10px; font-weight:600; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--dim);
+    background:transparent; border:1px solid var(--edge); border-radius:7px;
+    padding:7px 0; cursor:pointer; transition:color .15s, border-color .15s;
+  }
+  .tsmall:hover{color:var(--ink); border-color:#3a4050;}
+  .tsmall:disabled{opacity:.35; cursor:default;}
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:2px;
+    background:#31363f; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--tc, var(--ink)); border:2px solid var(--bg);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:12px; height:12px; border-radius:50%;
+    background:var(--tc, var(--ink)); border:2px solid var(--bg);
+  }
+  .vol{display:flex; align-items:center; gap:8px;}
+  .vol svg{flex:none; opacity:.5;}
+
+  footer{
+    text-align:center; padding:0 22px 18px; color:var(--dim);
+    font-size:11px; letter-spacing:.06em;
+  }
+  footer kbd{
+    font-family:'JetBrains Mono',monospace; font-size:10px;
+    background:var(--panel-2); border:1px solid var(--edge); border-radius:4px;
+    padding:1px 5px; margin:0 1px;
+  }
+  #intro{
+    display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap;
+    margin:0 22px 14px; padding:10px 40px 10px 16px; position:relative;
+    max-width:1136px; margin-left:auto; margin-right:auto;
+    background:var(--panel); border:1px solid var(--edge); border-radius:12px;
+    font-size:12px; letter-spacing:.03em; color:var(--dim);
+  }
+  #intro b{color:var(--ink); font-weight:600;}
+  #intro .step{display:flex; align-items:center; gap:7px; white-space:nowrap;}
+  #intro .n{
+    width:18px; height:18px; border-radius:50%; flex:none;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:10px; font-weight:700; color:var(--bg);
+  }
+  #intro .s1 .n{background:var(--t1);} #intro .s2 .n{background:var(--t3);}
+  #intro .s3 .n{background:var(--t2);} #intro .s4 .n{background:var(--t4);}
+  #introClose{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--dim); font-size:16px; cursor:pointer;
+    padding:4px 8px; line-height:1;
+  }
+  #introClose:hover{color:var(--ink);}
+  #micwarn{
+    display:none; margin:0 auto 8px; max-width:600px; text-align:center;
+    color:var(--t2); font-size:12px; padding:0 22px;
+  }
+  @media (prefers-reduced-motion:reduce){
+    .tstate.rec,.tstate.dub{animation:none;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <h1>LOOP<span>DECK</span></h1>
+    <small>4-track live looper</small>
+  </div>
+  <div class="master">
+    <button class="mbtn" id="playAll">&#9654; Play all</button>
+    <button class="mbtn" id="stopAll">&#9632; Stop all</button>
+    <button class="mbtn" id="songBtn">&#9679; Record song</button>
+    <label class="mvol">Master
+      <input type="range" id="masterVol" min="0" max="1" step="0.01" value="0.9" style="width:110px">
+    </label>
+  </div>
+</header>
+
+<div id="intro">
+  <span><b>LOOPDECK</b> turns your mic &amp; sounds into live layered loops.</span>
+  <span class="step s1"><span class="n">1</span>Tap a pad to <b>record</b></span>
+  <span class="step s2"><span class="n">2</span>Tap again — it <b>loops</b></span>
+  <span class="step s3"><span class="n">3</span>Tap to <b>overdub</b> layers</span>
+  <span class="step s4"><span class="n">4</span>Or <b>drop a sound file</b> on a track</span>
+  <button id="introClose" aria-label="Dismiss intro">&#215;</button>
+</div>
+
+<div id="micwarn">Microphone access is blocked — recording is disabled, but you can still drop your own audio files onto any track.</div>
+
+<main id="deck"></main>
+
+<footer>
+  Tap a pad to <strong>record → loop → overdub</strong>. Drop an audio file on any track to use your own sound.
+  <strong>&#9679; Record song</strong> captures your loops + live vocals into a downloadable WAV.
+  Keys <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> trigger tracks &nbsp;·&nbsp; <kbd>Space</kbd> stops all.
+</footer>
+
+<script>
+(() => {
+"use strict";
+
+const HUES = [
+  {name:"TRACK 1", css:"--t1", color:"#ff5d4d"},
+  {name:"TRACK 2", css:"--t2", color:"#ffb02e"},
+  {name:"TRACK 3", css:"--t3", color:"#3ddc84"},
+  {name:"TRACK 4", css:"--t4", color:"#4dc3ff"},
+];
+
+let ctx = null, masterGain = null;
+let micStream = null, micSource = null, micDenied = false;
+
+function audio(){
+  if(!ctx){
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = parseFloat(masterVolEl.value);
+    masterGain.connect(ctx.destination);
+  }
+  if(ctx.state === "suspended") ctx.resume();
+  return ctx;
+}
+
+async function getMic(){
+  if(micDenied) return null;
+  if(micStream) return micStream;
+  try{
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}
+    });
+    micSource = audio().createMediaStreamSource(micStream);
+    return micStream;
+  }catch(e){
+    micDenied = true;
+    document.getElementById("micwarn").style.display = "block";
+    return null;
+  }
+}
+
+/* ---------------- Track ---------------- */
+class Track{
+  constructor(i, root){
+    this.i = i;
+    this.hue = HUES[i];
+    this.state = "empty";           // empty | recording | playing | overdub | stopped
+    this.buffer = null;             // AudioBuffer (mono)
+    this.source = null;
+    this.startTime = 0;             // ctx time the current loop pass began (t=0 of loop)
+    this.gain = null;
+    this.volume = 0.9;
+    this.recChunks = [];            // Float32Array chunks while recording
+    this.recAmps = [];              // live amplitude preview
+    this.recNode = null;
+    this.dubOffset = 0;             // loop position where overdub began
+    this.peaks = null;              // waveform bins for drawing
+    this.buildDOM(root);
+    this.draw = this.draw.bind(this);
+  }
+
+  buildDOM(root){
+    const el = document.createElement("section");
+    el.className = "track";
+    el.style.setProperty("--tc", this.hue.color);
+    el.innerHTML = `
+      <div class="thead">
+        <span class="tname">${this.hue.name}</span>
+        <span class="tstate">empty</span>
+      </div>
+      <div class="padwrap">
+        <canvas></canvas>
+        <button class="padbtn" aria-label="${this.hue.name} main pad">
+          <span class="lbl">REC</span>
+          <span class="clock"></span>
+          <span class="hint">key ${this.i+1}</span>
+        </button>
+      </div>
+      <div class="trow">
+        <button class="tsmall stop">Stop</button>
+        <button class="tsmall load">Load sound</button>
+        <button class="tsmall clear">Clear</button>
+      </div>
+      <div class="vol">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+        <input type="range" min="0" max="1" step="0.01" value="0.9" aria-label="${this.hue.name} volume">
+      </div>
+      <input type="file" accept="audio/*" hidden>
+    `;
+    root.appendChild(el);
+    this.el = el;
+    this.canvas = el.querySelector("canvas");
+    this.cx = this.canvas.getContext("2d");
+    this.pad = el.querySelector(".padbtn");
+    this.lbl = el.querySelector(".lbl");
+    this.clock = el.querySelector(".clock");
+    this.stateEl = el.querySelector(".tstate");
+    this.fileInput = el.querySelector("input[type=file]");
+
+    this.pad.addEventListener("click", () => this.tap());
+    el.querySelector(".stop").addEventListener("click", () => this.stopPlayback());
+    el.querySelector(".clear").addEventListener("click", () => this.clear());
+    el.querySelector(".load").addEventListener("click", () => this.fileInput.click());
+    this.fileInput.addEventListener("change", e => {
+      if(e.target.files[0]) this.loadFile(e.target.files[0]);
+      e.target.value = "";
+    });
+    el.querySelector(".vol input").addEventListener("input", e => {
+      this.volume = parseFloat(e.target.value);
+      if(this.gain) this.gain.gain.setTargetAtTime(this.volume, audio().currentTime, .02);
+    });
+
+    ["dragover","dragenter"].forEach(ev => el.addEventListener(ev, e => {
+      e.preventDefault(); el.classList.add("dragover");
+    }));
+    ["dragleave","drop"].forEach(ev => el.addEventListener(ev, e => {
+      e.preventDefault(); el.classList.remove("dragover");
+    }));
+    el.addEventListener("drop", e => {
+      const f = [...e.dataTransfer.files].find(f => f.type.startsWith("audio") || /\.(wav|mp3|ogg|m4a|aac|flac|webm)$/i.test(f.name));
+      if(f) this.loadFile(f);
+    });
+  }
+
+  setState(s){
+    this.state = s;
+    const map = {empty:"empty", recording:"recording", playing:"looping", overdub:"overdub", stopped:"ready"};
+    this.stateEl.textContent = map[s];
+    this.stateEl.className = "tstate" + (s==="recording" ? " rec" : s==="overdub" ? " dub" : "");
+    this.lbl.textContent = {empty:"REC", recording:"SET", playing:"DUB", overdub:"MERGE", stopped:"PLAY"}[s];
+  }
+
+  /* main pad state machine */
+  async tap(){
+    audio();
+    if(this.state === "empty")          await this.startRecording();
+    else if(this.state === "recording") this.finishRecording();
+    else if(this.state === "playing")   await this.startOverdub();
+    else if(this.state === "overdub")   this.finishOverdub();
+    else if(this.state === "stopped")   this.play(0);
+  }
+
+  /* ---- recording (raw PCM via ScriptProcessor for gapless loops) ---- */
+  async startRecording(){
+    const mic = await getMic();
+    if(!mic) return;
+    this.recChunks = []; this.recAmps = [];
+    this.recNode = ctx.createScriptProcessor(4096, 1, 1);
+    this.recNode.onaudioprocess = e => {
+      const d = e.inputBuffer.getChannelData(0);
+      this.recChunks.push(new Float32Array(d));
+      let s = 0; for(let k=0;k<d.length;k+=32) s = Math.max(s, Math.abs(d[k]));
+      this.recAmps.push(s);
+    };
+    micSource.connect(this.recNode);
+    this.recNode.connect(this.silent()); // ScriptProcessor needs an output to run; muted sink avoids feedback
+    this.recStart = ctx.currentTime;
+    if(this.state !== "playing" && this.state !== "overdub") this.setState("recording");
+  }
+
+  silent(){
+    if(!this._sink){ this._sink = ctx.createGain(); this._sink.gain.value = 0; this._sink.connect(ctx.destination); }
+    return this._sink;
+  }
+
+  stopRecNode(){
+    if(this.recNode){ try{ micSource.disconnect(this.recNode); }catch(e){} this.recNode.disconnect(); this.recNode.onaudioprocess = null; this.recNode = null; }
+  }
+
+  collectRecording(){
+    const len = this.recChunks.reduce((a,c)=>a+c.length,0);
+    const out = new Float32Array(len);
+    let o = 0;
+    for(const c of this.recChunks){ out.set(c,o); o += c.length; }
+    this.recChunks = [];
+    return out;
+  }
+
+  finishRecording(){
+    this.stopRecNode();
+    const data = this.collectRecording();
+    if(data.length < ctx.sampleRate * 0.15){ this.setState("empty"); this.recAmps = []; return; }
+    const buf = ctx.createBuffer(1, data.length, ctx.sampleRate);
+    buf.copyToChannel(data, 0);
+    this.buffer = buf;
+    this.computePeaks();
+    this.recAmps = [];
+    this.play(0);
+  }
+
+  /* ---- overdub: record while playing, then sum into the loop ---- */
+  async startOverdub(){
+    const mic = await getMic();
+    if(!mic) return;
+    this.dubOffset = this.loopPos();
+    await this.startRecording();
+    this.setState("overdub");
+  }
+
+  finishOverdub(){
+    this.stopRecNode();
+    const data = this.collectRecording();
+    this.recAmps = [];
+    if(!this.buffer || data.length < 256){ this.setState("playing"); return; }
+    const loop = this.buffer.getChannelData(0);
+    const L = loop.length;
+    const start = Math.floor(this.dubOffset * ctx.sampleRate) % L;
+    for(let n=0; n<data.length; n++){
+      const idx = (start + n) % L;
+      loop[idx] = Math.max(-1, Math.min(1, loop[idx] + data[n]));
+    }
+    this.computePeaks();
+    // restart source at current position with updated buffer
+    const pos = this.loopPos();
+    this.play(pos);
+  }
+
+  /* ---- playback ---- */
+  play(offset){
+    this.stopSource();
+    if(!this.buffer) return;
+    this.gain = ctx.createGain();
+    this.gain.gain.value = this.volume;
+    this.gain.connect(masterGain);
+    this.source = ctx.createBufferSource();
+    this.source.buffer = this.buffer;
+    this.source.loop = true;
+    this.source.connect(this.gain);
+    this.source.start(0, offset % this.buffer.duration);
+    this.startTime = ctx.currentTime - offset;
+    this.setState("playing");
+  }
+
+  loopPos(){
+    if(!this.buffer) return 0;
+    return (ctx.currentTime - this.startTime) % this.buffer.duration;
+  }
+
+  stopSource(){
+    if(this.source){ try{ this.source.stop(); }catch(e){} this.source.disconnect(); this.source = null; }
+    if(this.gain){ this.gain.disconnect(); this.gain = null; }
+  }
+
+  stopPlayback(){
+    if(this.state === "recording"){ this.stopRecNode(); this.recChunks=[]; this.recAmps=[]; this.setState(this.buffer ? "stopped" : "empty"); return; }
+    if(this.state === "overdub"){ this.finishOverdub(); }
+    this.stopSource();
+    this.setState(this.buffer ? "stopped" : "empty");
+  }
+
+  clear(){
+    this.stopRecNode(); this.stopSource();
+    this.buffer = null; this.peaks = null; this.recChunks = []; this.recAmps = [];
+    this.clock.textContent = "";
+    this.setState("empty");
+  }
+
+  async loadFile(file){
+    audio();
+    try{
+      const arr = await file.arrayBuffer();
+      const decoded = await ctx.decodeAudioData(arr);
+      // mixdown to mono
+      const mono = ctx.createBuffer(1, decoded.length, decoded.sampleRate);
+      const out = mono.getChannelData(0);
+      for(let ch=0; ch<decoded.numberOfChannels; ch++){
+        const d = decoded.getChannelData(ch);
+        for(let n=0;n<d.length;n++) out[n] += d[n]/decoded.numberOfChannels;
+      }
+      // resample if needed via OfflineAudioContext
+      let finalBuf = mono;
+      if(decoded.sampleRate !== ctx.sampleRate){
+        const off = new OfflineAudioContext(1, Math.ceil(decoded.duration*ctx.sampleRate), ctx.sampleRate);
+        const s = off.createBufferSource(); s.buffer = mono; s.connect(off.destination); s.start();
+        finalBuf = await off.startRendering();
+      }
+      this.stopSource();
+      this.buffer = finalBuf;
+      this.computePeaks();
+      this.play(0);
+    }catch(e){
+      this.stateEl.textContent = "couldn't read file";
+      setTimeout(()=>this.setState(this.state), 2000);
+    }
+  }
+
+  /* ---- drawing ---- */
+  computePeaks(){
+    const BINS = 128, d = this.buffer.getChannelData(0), step = Math.max(1, Math.floor(d.length/BINS));
+    const peaks = new Float32Array(BINS);
+    for(let b=0;b<BINS;b++){
+      let m=0, s=b*step, e=Math.min(d.length, s+step);
+      for(let n=s;n<e;n+=16) m = Math.max(m, Math.abs(d[n]));
+      peaks[b]=m;
+    }
+    const mx = Math.max(0.05, ...peaks);
+    for(let b=0;b<BINS;b++) peaks[b]/=mx;
+    this.peaks = peaks;
+  }
+
+  draw(){
+    const c = this.canvas, x = this.cx;
+    const dpr = window.devicePixelRatio||1;
+    const w = c.clientWidth, h = c.clientHeight;
+    if(c.width !== w*dpr){ c.width = w*dpr; c.height = h*dpr; }
+    x.setTransform(dpr,0,0,dpr,0,0);
+    x.clearRect(0,0,w,h);
+    const cx0=w/2, cy0=h/2, R=Math.min(w,h)/2;
+    const innerR = R*0.62, maxAmp = R*0.30;
+    const col = this.hue.color;
+
+    // base ring
+    x.beginPath(); x.arc(cx0,cy0,innerR,0,Math.PI*2);
+    x.strokeStyle="rgba(255,255,255,.07)"; x.lineWidth=1.5; x.stroke();
+
+    const TWO=Math.PI*2, rot=-Math.PI/2;
+
+    if(this.state==="recording" || this.state==="overdub"){
+      // live growing waveform, red (rec) or track color (dub)
+      const amps=this.recAmps, N=amps.length;
+      const liveCol = this.state==="recording" ? "#ff4438" : col;
+      if(N){
+        const span = Math.min(1, N/ (ctx ? (ctx.sampleRate/4096)*12 : 120)); // fills over ~12s
+        x.strokeStyle=liveCol; x.lineWidth=2; x.lineCap="round";
+        const M=Math.min(N,160), st=Math.max(1,Math.floor(N/M));
+        for(let k=0,j=0;k<N;k+=st,j++){
+          const a=rot + (j/(M)) * TWO * span;
+          const amp=Math.min(1,amps[k]*1.6)*maxAmp+2;
+          x.beginPath();
+          x.moveTo(cx0+Math.cos(a)*(innerR-amp), cy0+Math.sin(a)*(innerR-amp));
+          x.lineTo(cx0+Math.cos(a)*(innerR+amp), cy0+Math.sin(a)*(innerR+amp));
+          x.stroke();
+        }
+      }
+      // pulsing rec dot
+      const t=performance.now()/1000;
+      x.beginPath(); x.arc(cx0,cy0,4+Math.sin(t*6)*1.5,0,TWO);
+      x.fillStyle=this.state==="recording"?"#ff4438":col; x.fill();
+      this.clock.textContent = this.fmt(ctx.currentTime - this.recStart);
+    }
+    else if(this.peaks){
+      const active = this.state==="playing";
+      const pos = active ? this.loopPos()/this.buffer.duration : 0;
+      const N=this.peaks.length;
+      x.lineWidth=2; x.lineCap="round";
+      for(let b=0;b<N;b++){
+        const a=rot + (b/N)*TWO;
+        const amp=this.peaks[b]*maxAmp+2;
+        const played = active && (b/N) <= pos;
+        x.strokeStyle = played ? col : (active ? this.dimmed(col,.35) : this.dimmed(col,.45));
+        x.beginPath();
+        x.moveTo(cx0+Math.cos(a)*(innerR-amp), cy0+Math.sin(a)*(innerR-amp));
+        x.lineTo(cx0+Math.cos(a)*(innerR+amp), cy0+Math.sin(a)*(innerR+amp));
+        x.stroke();
+      }
+      if(active){
+        // playhead
+        const a=rot+pos*TWO;
+        x.strokeStyle="#ffffff"; x.lineWidth=2.5;
+        x.beginPath();
+        x.moveTo(cx0+Math.cos(a)*(innerR-maxAmp-6), cy0+Math.sin(a)*(innerR-maxAmp-6));
+        x.lineTo(cx0+Math.cos(a)*(innerR+maxAmp+6), cy0+Math.sin(a)*(innerR+maxAmp+6));
+        x.stroke();
+        this.clock.textContent = this.fmt(this.loopPos()) + " / " + this.fmt(this.buffer.duration);
+      } else {
+        this.clock.textContent = this.fmt(this.buffer.duration);
+      }
+    } else {
+      this.clock.textContent = "";
+    }
+  }
+
+  dimmed(hex,a){
+    const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  fmt(s){
+    if(!isFinite(s)) return "";
+    const m=Math.floor(s/60), sec=(s%60);
+    return m+":"+sec.toFixed(1).padStart(4,"0");
+  }
+}
+
+/* ---------------- boot ---------------- */
+const masterVolEl = document.getElementById("masterVol");
+const deck = document.getElementById("deck");
+const tracks = HUES.map((_,i)=>new Track(i, deck));
+
+masterVolEl.addEventListener("input", e=>{
+  if(masterGain) masterGain.gain.setTargetAtTime(parseFloat(e.target.value), ctx.currentTime, .02);
+});
+document.getElementById("stopAll").addEventListener("click", ()=>tracks.forEach(t=>t.stopPlayback()));
+document.getElementById("playAll").addEventListener("click", ()=>{
+  audio();
+  tracks.forEach(t=>{ if(t.state==="stopped" && t.buffer) t.play(0); });
+});
+
+window.addEventListener("keydown", e=>{
+  if(e.repeat) return;
+  if(e.target.tagName==="INPUT") return;
+  if(e.code==="Space"){ e.preventDefault(); tracks.forEach(t=>t.stopPlayback()); }
+  const n=parseInt(e.key);
+  if(n>=1 && n<=4){ tracks[n-1].tap(); }
+});
+
+const intro = document.getElementById("intro");
+try{ if(localStorage.getItem("ld_intro")==="hidden") intro.style.display="none"; }catch(e){}
+document.getElementById("introClose").addEventListener("click", ()=>{
+  intro.style.display="none";
+  try{ localStorage.setItem("ld_intro","hidden"); }catch(e){}
+});
+
+/* ---------------- song recorder: loops + live vocal -> WAV download ---------------- */
+const songBtn = document.getElementById("songBtn");
+let songNode=null, songChunks=[], songStart=0, songSink=null, songMicGain=null;
+
+function fmtTime(s){ const m=Math.floor(s/60), sec=s%60; return m+":"+sec.toFixed(1).padStart(4,"0"); }
+
+async function toggleSong(){
+  audio();
+  if(songNode){ finishSong(); return; }
+  const mic = await getMic();   // vocal input; if denied we still capture the loops
+  songChunks = [];
+  songNode = ctx.createScriptProcessor(4096, 1, 1);
+  songNode.onaudioprocess = e => {
+    songChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  };
+  masterGain.connect(songNode);                     // everything you hear
+  if(mic){
+    songMicGain = ctx.createGain(); songMicGain.gain.value = 1;
+    micSource.connect(songMicGain); songMicGain.connect(songNode);   // vocal into the file only (no speaker feedback)
+  }
+  songSink = ctx.createGain(); songSink.gain.value = 0;
+  songNode.connect(songSink); songSink.connect(ctx.destination);
+  songStart = ctx.currentTime;
+  songBtn.classList.add("rec");
+  tickSong();
+}
+
+function tickSong(){
+  if(!songNode) return;
+  songBtn.innerHTML = "&#9632; Finish &amp; download &nbsp;" + fmtTime(ctx.currentTime - songStart);
+  requestAnimationFrame(tickSong);
+}
+
+function finishSong(){
+  try{ masterGain.disconnect(songNode); }catch(e){}
+  if(songMicGain){ try{ micSource.disconnect(songMicGain); }catch(e){} songMicGain.disconnect(); songMicGain=null; }
+  songNode.disconnect(); songNode.onaudioprocess=null; songNode=null;
+  if(songSink){ songSink.disconnect(); songSink=null; }
+  songBtn.classList.remove("rec");
+  songBtn.innerHTML = "&#9679; Record song";
+  const len = songChunks.reduce((a,c)=>a+c.length,0);
+  if(len < ctx.sampleRate*0.2){ songChunks=[]; return; }
+  const data = new Float32Array(len);
+  let o=0; for(const c of songChunks){ data.set(c,o); o+=c.length; }
+  songChunks = [];
+  const blob = encodeWav(data, ctx.sampleRate);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "loopdeck-song.wav";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+}
+
+function encodeWav(samples, rate){
+  const buf = new ArrayBuffer(44 + samples.length*2), v = new DataView(buf);
+  const ws = (off,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(off+i, s.charCodeAt(i)); };
+  ws(0,"RIFF"); v.setUint32(4, 36 + samples.length*2, true); ws(8,"WAVE");
+  ws(12,"fmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,rate,true); v.setUint32(28,rate*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  ws(36,"data"); v.setUint32(40, samples.length*2, true);
+  let o=44;
+  for(let i=0;i<samples.length;i++,o+=2){
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(o, s<0 ? s*0x8000 : s*0x7FFF, true);
+  }
+  return new Blob([buf], {type:"audio/wav"});
+}
+
+songBtn.addEventListener("click", toggleSong);
+
+function frame(){
+  for(const t of tracks) t.draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
